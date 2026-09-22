@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ai 经纬度批量落图脚本生成器</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --blue: #2563eb;
+      --blue-50: #eff6ff;
+      --blue-100: #dbeafe;
+      --border: #e2e8f0;
+      --bg: #f1f5f9;
+      --white: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --green: #16a34a;
+      --green-bg: #dcfce7;
+      --red: #dc2626;
+      --red-bg: #fee2e2;
+      --amber: #b45309;
+      --amber-bg: #fef3c7;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+                   'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .hdr {
+      background: var(--blue);
+      padding: 14px 28px;
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+    }
+    .hdr h1 { color: #fff; font-size: 17px; font-weight: 700; white-space: nowrap; }
+    .hdr p { color: rgba(255,255,255,.75); font-size: 12.5px; }
+    .main {
+      max-width: 1100px;
+      margin: 22px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+    }
+    .card-hdr {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      width: 24px;
+      height: 24px;
+      background: var(--blue);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .card-title { font-size: 15px; font-weight: 600; }
+    .card-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+    .note {
+      padding: 10px 12px;
+      border-radius: 7px;
+      background: var(--blue-50);
+      color: #1d4ed8;
+      font-size: 12.5px;
+      margin-bottom: 14px;
+    }
+    .sg {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .fld { min-width: 0; }
+    .flbl {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .fhint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+    }
+    .frow { display: flex; gap: 8px; align-items: center; }
+    input,
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+    input[type="number"],
+    input[type="text"],
+    input[type="file"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input[type="number"],
+    input[type="text"],
+    input[type="file"],
+    select {
+      min-height: 36px;
+      padding: 7px 9px;
+    }
+    input[type="color"] {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: #fff;
+      padding: 3px;
+    }
+    textarea {
+      min-height: 180px;
+      padding: 10px 11px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+      line-height: 1.45;
+    }
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+    input:disabled,
+    select:disabled {
+      background: #f8fafc;
+      color: #94a3b8;
+    }
+    .btn-row {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 7px;
+      padding: 8px 13px;
+      font-weight: 700;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: transform .12s, box-shadow .12s, background .12s, border-color .12s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15,23,42,.08); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-outline { background: #fff; color: var(--blue); border-color: var(--blue-100); }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+    .cp-wrap,
+    .table-scroll {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .table-scroll.resizable {
+      resize: both;
+      min-height: 180px;
+      max-height: 520px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 720px;
+    }
+    th,
+    td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 9px;
+      text-align: left;
+      vertical-align: middle;
+      white-space: nowrap;
+      font-size: 12.5px;
+    }
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:last-child td { border-bottom: 0; }
+    td input[type="number"],
+    td input[type="text"],
+    td input[type="file"] {
+      min-width: 130px;
+    }
+    .lbl { color: var(--muted); font-weight: 700; }
+    .arr { color: var(--muted); text-align: center; }
+    .paste-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .paste-grid textarea {
+      min-height: 72px;
+      max-height: 90px;
+    }
+    .paste-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .paste-tag {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--blue-100);
+      color: var(--blue);
+    }
+    .paste-flash {
+      border-color: var(--green) !important;
+      box-shadow: 0 0 0 3px rgba(22,163,74,.15) !important;
+    }
+    .st {
+      margin-top: 12px;
+      padding: 9px 11px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+    .st-ok { background: var(--green-bg); color: #166534; }
+    .st-err { background: var(--red-bg); color: #991b1b; }
+    .st-warn { background: var(--amber-bg); color: var(--amber); }
+    .fml {
+      margin-top: 12px;
+      padding: 11px 12px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+      font-size: 12.5px;
+      overflow-x: auto;
+    }
+    .fml em { color: #93c5fd; font-style: normal; }
+    .ok { color: var(--green); font-weight: 700; }
+    .bad { color: var(--red); font-weight: 700; }
+    .empty {
+      color: var(--muted);
+      padding: 28px 12px;
+      text-align: center;
+    }
+    .path-cell {
+      display: grid;
+      grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.3fr);
+      gap: 8px;
+      align-items: center;
+      min-width: 520px;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+    }
+    .codebox {
+      min-height: 360px;
+      white-space: pre;
+      overflow: auto;
+    }
+    @media (max-width: 760px) {
+      .hdr { padding: 12px 16px; display: block; }
+      .hdr p { margin-top: 4px; }
+      .paste-grid { grid-template-columns: 1fr; }
+      .card { padding: 16px; }
+      .card-actions { margin-left: 0; width: 100%; }
+      .path-cell { grid-template-columns: 1fr; min-width: 360px; }
+    }
+  </style>
+</head>
+<body>
+<div class="hdr">
+  <h1>Ai 经纬度批量落图脚本生成器</h1>
+  <p>导入台账，按分类绑定 SVG 图标，并生成 Illustrator JSX 脚本</p>
+</div>
+
+<div class="main">
+  <div class="card">
+    <div class="card-hdr">
+      <div class="badge">1</div>
+      <div class="card-title">Ai 底图坐标设置</div>
+    </div>
+    <div class="sg">
+      <div class="fld">
+        <div class="flbl">坐标单位</div>
+        <select id="ai-unit" onchange="onAiUnitChange()">
+          <option value="px">px（像素，Ai 中等同 pt）</option>
+          <option value="pt">pt（点）</option>
+          <option value="mm" selected>mm（毫米）</option>
+          <option value="cm">cm（厘米）</option>
+          <option value="in">in（英寸）</option>
+        </select>
+        <div class="fhint">控制点坐标、转换结果和生成脚本共用此单位</div>
+      </div>
+      <div class="fld">
+        <div class="flbl">Y 轴方向</div>
+        <select id="ai-y-dir">
+          <option value="down" selected>原点在左上，Y 向下（Ai 默认）</option>
+          <option value="up">原点在左下，Y 向上</option>
+        </select>
+        <div class="fhint">生成脚本会按此方向把坐标映射到当前活动画板</div>
+      </div>
+      <div class="fld">
+        <div class="flbl">输出小数位数</div>
+        <select id="dp">
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="6">6</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr">
+      <div class="badge">2</div>
+      <div class="card-title">仿射变换公式计算</div>
+    </div>
+    <div class="note">
+      在 Ai「变换」面板读取三个已知地理位置的 XY 坐标，填入下表。三个控制点不能共线。需保证：此处计算点经纬度坐标系和台账数据经纬度坐标系一致（WGS-84或GCJ-02）！
+    </div>
+    <div class="cp-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:42px"></th>
+            <th style="min-width:130px">经度 Lng</th>
+            <th style="min-width:130px">纬度 Lat</th>
+            <th style="width:34px"></th>
+            <th style="min-width:120px" id="hdr-x">Ai X</th>
+            <th style="min-width:120px" id="hdr-y">Ai Y</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="lbl">点 1</td>
+            <td><input type="number" id="lng1" placeholder="116.4074" step="any"></td>
+            <td><input type="number" id="lat1" placeholder="39.9042" step="any"></td>
+            <td class="arr">→</td>
+            <td><input type="number" id="aix1" placeholder="X" step="any"></td>
+            <td><input type="number" id="aiy1" placeholder="Y" step="any"></td>
+          </tr>
+          <tr>
+            <td class="lbl">点 2</td>
+            <td><input type="number" id="lng2" step="any"></td>
+            <td><input type="number" id="lat2" step="any"></td>
+            <td class="arr">→</td>
+            <td><input type="number" id="aix2" placeholder="X" step="any"></td>
+            <td><input type="number" id="aiy2" placeholder="Y" step="any"></td>
+          </tr>
+          <tr>
+            <td class="lbl">点 3</td>
+            <td><input type="number" id="lng3" step="any"></td>
+            <td><input type="number" id="lat3" step="any"></td>
+            <td class="arr">→</td>
+            <td><input type="number" id="aix3" placeholder="X" step="any"></td>
+            <td><input type="number" id="aiy3" placeholder="Y" step="any"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="paste-grid">
+      <div>
+        <div class="paste-label"><span class="paste-tag">粘贴</span>经纬度（经度[Tab]纬度，3行）</div>
+        <textarea id="cp-lnglat" placeholder="116.4074&#9;39.9042&#10;121.4737&#9;31.2304&#10;113.2644&#9;23.1291"></textarea>
+      </div>
+      <div>
+        <div class="paste-label"><span class="paste-tag">粘贴</span>Ai XY（X[Tab]Y，3行）</div>
+        <textarea id="cp-xy" placeholder="100&#9;80&#10;320&#9;220&#10;180&#9;300"></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="computeMatrix()">计算仿射矩阵</button>
+      <button class="btn btn-outline" onclick="loadExample()">加载示例数据</button>
+    </div>
+    <div id="m-status"></div>
+    <div id="m-formula" style="display:none"></div>
+    <div id="verify-wrap" style="display:none">
+      <div class="fhint" style="margin-top:14px;margin-bottom:5px;font-weight:700">验证：将控制点回代，残差应为 0</div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>点</th>
+              <th>Lng</th>
+              <th>Lat</th>
+              <th>Ai X（计算）</th>
+              <th>Ai Y（计算）</th>
+              <th>Ai X（输入）</th>
+              <th>Ai Y（输入）</th>
+              <th>ΔX 残差</th>
+              <th>ΔY 残差</th>
+            </tr>
+          </thead>
+          <tbody id="v-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr">
+      <div class="badge">3</div>
+      <div class="card-title">导入台账数据（Excel 表）</div>
+      <div class="card-actions">
+        <button class="btn btn-sm btn-outline" onclick="clearLedger()">清除台账</button>
+      </div>
+    </div>
+    <div class="note">
+      Excel 表格需为首行表头的标准格式。xlsx / xls 文件依赖页面顶部加载的 SheetJS；csv / tsv 可直接解析。
+    </div>
+    <div class="sg">
+      <div class="fld">
+        <div class="flbl">选择台账文件</div>
+        <input type="file" id="ledger-file" accept=".xlsx,.xls,.csv,.tsv,.txt" onchange="handleLedgerFile(this.files[0])">
+        <div class="fhint" id="ledger-file-name">尚未导入文件</div>
+      </div>
+    </div>
+    <div class="table-scroll resizable" style="margin-top:14px">
+      <table>
+        <thead id="ledger-head"></thead>
+        <tbody id="ledger-body">
+          <tr><td class="empty">导入后在这里预览台账数据</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="ledger-status"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr">
+      <div class="badge">4</div>
+      <div class="card-title">经纬度转化为 XY 坐标</div>
+      <div class="card-actions">
+        <button class="btn btn-sm btn-green" onclick="copyConvertedTSV()">复制转换结果</button>
+        <button class="btn btn-sm btn-outline" onclick="downloadConvertedCSV()">下载 CSV</button>
+      </div>
+    </div>
+    <div class="sg">
+      <div class="fld">
+        <div class="flbl">选择经度列</div>
+        <select id="lng-col"></select>
+      </div>
+      <div class="fld">
+        <div class="flbl">选择纬度列</div>
+        <select id="lat-col"></select>
+      </div>
+      <div class="fld">
+        <div class="flbl">选择标识列</div>
+        <select id="label-col" onchange="syncLabelControls()"></select>
+        <div class="fhint">可选择为空；为空时脚本不生成标识文字</div>
+      </div>
+      <div class="fld">
+        <div class="flbl">选择分类列</div>
+        <select id="category-col"></select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="convertLedgerData()">转换坐标</button>
+    </div>
+    <div class="table-scroll resizable" style="margin-top:14px">
+      <table>
+        <thead id="converted-head"></thead>
+        <tbody id="converted-body">
+          <tr><td class="empty">完成转换后在这里预览 XY 结果</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="convert-status"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr">
+      <div class="badge">5</div>
+      <div class="card-title">图标设置</div>
+    </div>
+    <div class="sg" style="margin-bottom:14px">
+      <div class="fld">
+        <div class="flbl">图标缩放比例</div>
+        <input type="number" id="icon-scale" value="1.0" min="0.01" step="0.1">
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width:180px">分类项</th>
+            <th>SVG 图标文件 / 路径</th>
+          </tr>
+        </thead>
+        <tbody id="icon-body">
+          <tr><td colspan="2" class="empty">转换坐标后，会按分类列列出需要绑定的 SVG 图标</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="icon-status"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr">
+      <div class="badge">6</div>
+      <div class="card-title">生成脚本代码</div>
+      <div class="card-actions">
+        <button class="btn btn-sm btn-green" onclick="generateCode()">生成脚本代码</button>
+        <button class="btn btn-sm btn-outline" onclick="copyCode()">复制代码</button>
+        <button class="btn btn-sm btn-outline" onclick="downloadJSX()">下载 .jsx</button>
+      </div>
+    </div>
+    <div class="sg">
+      <div class="fld">
+        <div class="flbl">标识文字位置</div>
+        <select id="text-pos">
+          <option value="center" selected>图标中心</option>
+          <option value="right">图标右侧</option>
+        </select>
+      </div>
+      <div class="fld">
+        <div class="flbl">标识文字字号大小（pt）</div>
+        <input type="number" id="font-size" value="30" min="1" step="1">
+      </div>
+      <div class="fld">
+        <div class="flbl">标识文字字体</div>
+        <select id="text-font">
+          <option value="MicrosoftYaHei" selected>微软雅黑</option>
+          <option value="SimSun">宋体</option>
+          <option value="SimHei">黑体</option>
+          <option value="ArialMT">Arial</option>
+          <option value="TimesNewRomanPSMT">Times New Roman</option>
+        </select>
+      </div>
+      <div class="fld">
+        <div class="flbl">标识文字颜色</div>
+        <input type="color" id="text-color" value="#ffffff">
+      </div>
+    </div>
+    <div class="fhint" id="label-hint" style="margin-top:8px">标识列为空时，上方文字设置不参与脚本生成。</div>
+    <textarea id="output" class="codebox mono" readonly placeholder="生成的 JSX 代码会显示在这里"></textarea>
+    <div id="code-status"></div>
+  </div>
+</div>
+
+<script>
+const PT = { px: 1, pt: 1, mm: 72 / 25.4, cm: 720 / 25.4, in: 72 };
+
+let M = null;
+let ledgerHeaders = [];
+let ledgerRows = [];
+let convertedRows = [];
+let categoryIconPaths = {};
+
+const g = id => document.getElementById(id);
+const getNum = id => parseFloat(g(id).value);
+const getSel = id => g(id).value;
+const dp = () => parseInt(getSel('dp'), 10);
+const nf = n => n.toFixed(dp());
+
+function htmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function status(id, cls, html) {
+  g(id).innerHTML = `<div class="st st-${cls}">${html}</div>`;
+}
+
+function inv3(m) {
+  const [[a,b,c],[d,e,f],[g0,h,i]] = m;
+  const det = a*(e*i - f*h) - b*(d*i - f*g0) + c*(d*h - e*g0);
+  if (Math.abs(det) < 1e-12) return null;
+  return [
+    [(e*i-f*h)/det, (c*h-b*i)/det, (b*f-c*e)/det],
+    [(f*g0-d*i)/det, (a*i-c*g0)/det, (c*d-a*f)/det],
+    [(d*h-e*g0)/det, (b*g0-a*h)/det, (a*e-b*d)/det],
+  ];
+}
+
+function mv3(m, v) {
+  return m.map(r => r[0]*v[0] + r[1]*v[1] + r[2]*v[2]);
+}
+
+function parsePasteLines(text) {
+  return text.trim().split('\n')
+    .map(l => l.trim()).filter(Boolean)
+    .slice(0, 3)
+    .map(l => l.split(/[,\t]+/).map(s => s.trim()).filter(Boolean));
+}
+
+function flash(el) {
+  el.classList.add('paste-flash');
+  setTimeout(() => el.classList.remove('paste-flash'), 600);
+}
+
+g('cp-lnglat').addEventListener('paste', function(e) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  parsePasteLines(text).forEach((parts, i) => {
+    if (parts[0] !== undefined) g(`lng${i+1}`).value = parts[0];
+    if (parts[1] !== undefined) g(`lat${i+1}`).value = parts[1];
+  });
+  e.preventDefault();
+  flash(this);
+  setTimeout(() => { this.value = ''; }, 80);
+});
+
+g('cp-xy').addEventListener('paste', function(e) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  parsePasteLines(text).forEach((parts, i) => {
+    if (parts[0] !== undefined) g(`aix${i+1}`).value = parts[0];
+    if (parts[1] !== undefined) g(`aiy${i+1}`).value = parts[1];
+  });
+  e.preventDefault();
+  flash(this);
+  setTimeout(() => { this.value = ''; }, 80);
+});
+
+function onAiUnitChange() {
+  const u = getSel('ai-unit');
+  g('hdr-x').textContent = `Ai X (${u})`;
+  g('hdr-y').textContent = `Ai Y (${u})`;
+}
+
+function computeMatrix() {
+  const pts = [];
+  for (let i = 1; i <= 3; i++) {
+    const lng = getNum(`lng${i}`);
+    const lat = getNum(`lat${i}`);
+    const x = getNum(`aix${i}`);
+    const y = getNum(`aiy${i}`);
+    if ([lng, lat, x, y].some(Number.isNaN)) {
+      status('m-status', 'err', `点 ${i} 数据不完整，请检查填写。`);
+      return;
+    }
+    pts.push([lng, lat, x, y]);
+  }
+
+  const A = pts.map(p => [p[0], p[1], 1]);
+  const inv = inv3(A);
+  if (!inv) {
+    status('m-status', 'err', '三个控制点共线，无法唯一确定仿射变换，请重新选取不共线的点。');
+    return;
+  }
+
+  M = {
+    ax: mv3(inv, pts.map(p => p[2])),
+    ay: mv3(inv, pts.map(p => p[3])),
+  };
+
+  const unit = getSel('ai-unit');
+  const sf = n => `<em>${n.toPrecision(8).replace(/\.?0+$/, '')}</em>`;
+  g('m-formula').style.display = 'block';
+  g('m-formula').innerHTML = `<div class="fml">
+    X<sub>Ai</sub>&nbsp;(${unit}) = ${sf(M.ax[0])} × Lng &nbsp;+&nbsp; ${sf(M.ax[1])} × Lat &nbsp;+&nbsp; ${sf(M.ax[2])}<br>
+    Y<sub>Ai</sub>&nbsp;(${unit}) = ${sf(M.ay[0])} × Lng &nbsp;+&nbsp; ${sf(M.ay[1])} × Lat &nbsp;+&nbsp; ${sf(M.ay[2])}
+  </div>`;
+
+  let html = '';
+  pts.forEach(([lng, lat, ix, iy], i) => {
+    const cx = M.ax[0]*lng + M.ax[1]*lat + M.ax[2];
+    const cy = M.ay[0]*lng + M.ay[1]*lat + M.ay[2];
+    const dx = Math.abs(cx - ix);
+    const dy = Math.abs(cy - iy);
+    const fz = v => v < 1e-9 ? '0' : v.toFixed(dp());
+    html += `<tr>
+      <td>点 ${i+1}</td>
+      <td>${lng}</td>
+      <td>${lat}</td>
+      <td>${nf(cx)}</td>
+      <td>${nf(cy)}</td>
+      <td>${nf(ix)}</td>
+      <td>${nf(iy)}</td>
+      <td class="${dx < 1e-6 ? 'ok' : 'bad'}">${fz(dx)}</td>
+      <td class="${dy < 1e-6 ? 'ok' : 'bad'}">${fz(dy)}</td>
+    </tr>`;
+  });
+  g('v-tbody').innerHTML = html;
+  g('verify-wrap').style.display = 'block';
+  status('m-status', 'ok', '仿射矩阵计算成功✓');
+}
+
+function normalizeHeaders(row) {
+  return row.map((h, i) => {
+    const value = String(h ?? '').trim();
+    return value || `列${i + 1}`;
+  });
+}
+
+function rowsFromMatrix(matrix) {
+  const nonEmpty = matrix.filter(row => row.some(cell => String(cell ?? '').trim() !== ''));
+  if (nonEmpty.length < 2) return { headers: [], rows: [] };
+  const headers = normalizeHeaders(nonEmpty[0]);
+  const rows = nonEmpty.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((header, i) => {
+      obj[header] = row[i] ?? '';
+    });
+    return obj;
+  });
+  return { headers, rows };
+}
+
+function parseDelimited(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
+  const delimiter = lines[0] && lines[0].includes('\t') ? '\t' : ',';
+  return lines.map(line => line.split(delimiter).map(cell => cell.trim()));
+}
+
+function handleLedgerFile(file) {
+  if (!file) return;
+  g('ledger-file-name').textContent = file.name;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    try {
+      let matrix;
+      if (['xlsx', 'xls'].includes(ext)) {
+        if (!window.XLSX) {
+          status('ledger-status', 'err', '未能加载 Excel 解析库。请联网加载页面后重试，或临时另存为 csv / tsv 导入。');
+          return;
+        }
+        const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      } else {
+        matrix = parseDelimited(e.target.result);
+      }
+      const parsed = rowsFromMatrix(matrix);
+      ledgerHeaders = parsed.headers;
+      ledgerRows = parsed.rows;
+      convertedRows = [];
+      renderLedgerPreview();
+      populateColumnSelectors();
+      clearConvertedPreview();
+      renderIconSettings();
+      status('ledger-status', 'ok', `已导入 ${ledgerRows.length} 行数据，${ledgerHeaders.length} 个字段。`);
+    } catch (err) {
+      status('ledger-status', 'err', `导入失败：${htmlEscape(err.message)}`);
+    }
+  };
+
+  if (['xlsx', 'xls'].includes(ext)) {
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function renderLedgerPreview() {
+  if (!ledgerHeaders.length) {
+    g('ledger-head').innerHTML = '';
+    g('ledger-body').innerHTML = '<tr><td class="empty">导入后在这里预览台账数据</td></tr>';
+    return;
+  }
+  g('ledger-head').innerHTML = `<tr>${ledgerHeaders.map(h => `<th>${htmlEscape(h)}</th>`).join('')}</tr>`;
+  const preview = ledgerRows.slice(0, 200);
+  g('ledger-body').innerHTML = preview.map(row =>
+    `<tr>${ledgerHeaders.map(h => `<td>${htmlEscape(row[h])}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+function clearLedger() {
+  ledgerHeaders = [];
+  ledgerRows = [];
+  convertedRows = [];
+  categoryIconPaths = {};
+  g('ledger-file').value = '';
+  g('ledger-file-name').textContent = '尚未导入文件';
+  g('ledger-status').innerHTML = '';
+  renderLedgerPreview();
+  populateColumnSelectors();
+  clearConvertedPreview();
+  renderIconSettings();
+}
+
+function optionList(includeEmpty) {
+  const empty = includeEmpty ? '<option value="">不选择</option>' : '<option value="">请选择</option>';
+  return empty + ledgerHeaders.map(h => `<option value="${htmlEscape(h)}">${htmlEscape(h)}</option>`).join('');
+}
+
+function pickColumn(patterns) {
+  const lower = ledgerHeaders.map(h => String(h).toLowerCase());
+  for (const pattern of patterns) {
+    const idx = lower.findIndex(h => h.includes(pattern));
+    if (idx >= 0) return ledgerHeaders[idx];
+  }
+  return '';
+}
+
+function populateColumnSelectors() {
+  g('lng-col').innerHTML = optionList(false);
+  g('lat-col').innerHTML = optionList(false);
+  g('label-col').innerHTML = optionList(true);
+  g('category-col').innerHTML = optionList(false);
+
+  g('lng-col').value = pickColumn(['经度', 'lng', 'lon', 'longitude']);
+  g('lat-col').value = pickColumn(['纬度', 'lat', 'latitude']);
+  g('label-col').value = pickColumn(['标识', '编号', '名称', 'name', 'id']);
+  g('category-col').value = pickColumn(['分类', '类别', '类型', 'category', 'type']);
+  syncLabelControls();
+}
+
+function clearConvertedPreview() {
+  g('converted-head').innerHTML = '';
+  g('converted-body').innerHTML = '<tr><td class="empty">完成转换后在这里预览 XY 结果</td></tr>';
+  g('convert-status').innerHTML = '';
+}
+
+function parseCellNumber(value) {
+  if (typeof value === 'number') return value;
+  const cleaned = String(value ?? '').trim().replace(/,/g, '');
+  return parseFloat(cleaned);
+}
+
+function convertLedgerData() {
+  if (!M) {
+    status('convert-status', 'err', '请先完成步骤 2，计算仿射矩阵。');
+    return;
+  }
+  if (!ledgerRows.length) {
+    status('convert-status', 'err', '请先在步骤 3 导入台账数据。');
+    return;
+  }
+  const lngCol = getSel('lng-col');
+  const latCol = getSel('lat-col');
+  const labelCol = getSel('label-col');
+  const categoryCol = getSel('category-col');
+  if (!lngCol || !latCol || !categoryCol) {
+    status('convert-status', 'err', '请完整选择经度列、纬度列和分类列。');
+    return;
+  }
+
+  const rows = [];
+  const skipped = [];
+  ledgerRows.forEach((row, i) => {
+    const lng = parseCellNumber(row[lngCol]);
+    const lat = parseCellNumber(row[latCol]);
+    if (Number.isNaN(lng) || Number.isNaN(lat)) {
+      skipped.push(i + 2);
+      return;
+    }
+    const x = M.ax[0]*lng + M.ax[1]*lat + M.ax[2];
+    const y = M.ay[0]*lng + M.ay[1]*lat + M.ay[2];
+    const category = String(row[categoryCol] ?? '').trim() || '未分类';
+    const label = labelCol ? String(row[labelCol] ?? '').trim() : '';
+    rows.push({ lng, lat, x, y, label, category });
+  });
+
+  convertedRows = rows;
+  renderConvertedPreview();
+  renderIconSettings();
+  syncLabelControls();
+
+  const skipText = skipped.length ? `，跳过 ${skipped.length} 行无效经纬度` : '';
+  status('convert-status', rows.length ? 'ok' : 'err', `已转换 ${rows.length} 个点${skipText}。`);
+}
+
+function renderConvertedPreview() {
+  if (!convertedRows.length) {
+    clearConvertedPreview();
+    return;
+  }
+  const hasLabel = !!getSel('label-col');
+  const unit = getSel('ai-unit');
+  const headers = ['经度', '纬度', `x(${unit})`, `y(${unit})`];
+  if (hasLabel) headers.push('标识列');
+  headers.push('分类列');
+  g('converted-head').innerHTML = `<tr>${headers.map(h => `<th>${htmlEscape(h)}</th>`).join('')}</tr>`;
+  g('converted-body').innerHTML = convertedRows.map(row => {
+    const cells = [row.lng, row.lat, nf(row.x), nf(row.y)];
+    if (hasLabel) cells.push(row.label);
+    cells.push(row.category);
+    return `<tr>${cells.map(cell => `<td>${htmlEscape(cell)}</td>`).join('')}</tr>`;
+  }).join('');
+}
+
+function uniqueCategories() {
+  return [...new Set(convertedRows.map(row => row.category))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+}
+
+function renderIconSettings() {
+  const categories = uniqueCategories();
+  if (!categories.length) {
+    g('icon-body').innerHTML = '<tr><td colspan="2" class="empty">转换坐标后，会按分类列列出需要绑定的 SVG 图标</td></tr>';
+    g('icon-status').innerHTML = '';
+    return;
+  }
+  g('icon-body').innerHTML = categories.map(category => {
+    const key = encodeURIComponent(category);
+    const value = categoryIconPaths[category] || '';
+    return `<tr>
+      <td class="lbl">${htmlEscape(category)}</td>
+      <td>
+        <div class="path-cell">
+          <input type="file" accept=".svg" onchange="onIconFileSelected('${key}', this)">
+          <input type="text" class="mono" id="icon-path-${key}" value="${htmlEscape(value)}"
+                 placeholder="粘贴 Illustrator 可访问的 SVG 绝对路径"
+                 oninput="categoryIconPaths[decodeURIComponent('${key}')] = this.value.trim()">
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  status('icon-status', 'warn', '浏览器通常不会暴露本地文件的真实完整路径；如路径框显示 C:\\fakepath，请手动粘贴 SVG 的绝对路径。');
+}
+
+function onIconFileSelected(encodedCategory, input) {
+  const category = decodeURIComponent(encodedCategory);
+  const shown = input.value || (input.files[0] ? input.files[0].name : '');
+  categoryIconPaths[category] = shown;
+  const pathInput = g(`icon-path-${encodedCategory}`);
+  if (pathInput) pathInput.value = shown;
+}
+
+function syncLabelControls() {
+  const enabled = !!getSel('label-col');
+  ['text-pos', 'font-size', 'text-font', 'text-color'].forEach(id => {
+    g(id).disabled = !enabled;
+  });
+  g('label-hint').textContent = enabled
+    ? '当前已选择标识列，生成脚本时会按下方设置创建文字。'
+    : '标识列为空时，上方文字设置不参与脚本生成。';
+}
+
+function convertedHeaders() {
+  const hasLabel = !!getSel('label-col');
+  const cols = ['经度', '纬度', 'x', 'y'];
+  if (hasLabel) cols.push('标识列');
+  cols.push('分类列');
+  return cols;
+}
+
+function convertedTSV() {
+  const hasLabel = !!getSel('label-col');
+  const lines = [convertedHeaders().join('\t')];
+  convertedRows.forEach(row => {
+    const vals = [row.lng, row.lat, nf(row.x), nf(row.y)];
+    if (hasLabel) vals.push(row.label);
+    vals.push(row.category);
+    lines.push(vals.join('\t'));
+  });
+  return lines.join('\n');
+}
+
+function copyConvertedTSV() {
+  if (!convertedRows.length) return;
+  doCopy(convertedTSV(), 'convert-status', `已复制 ${convertedRows.length} 行转换结果。`);
+}
+
+function downloadConvertedCSV() {
+  if (!convertedRows.length) return;
+  const csv = convertedTSV().split('\n').map(line =>
+    line.split('\t').map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+  downloadText('\uFEFF' + csv, '坐标转换结果.csv', 'text/csv;charset=utf-8');
+}
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? [
+    parseInt(result[1], 16),
+    parseInt(result[2], 16),
+    parseInt(result[3], 16)
+  ] : [0, 0, 0];
+}
+
+function escapeJsString(value) {
+  return String(value ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, '\\n');
+}
+
+function buildScriptData() {
+  const groups = {};
+  convertedRows.forEach(row => {
+    if (!groups[row.category]) {
+      groups[row.category] = {
+        category: row.category,
+        iconPath: categoryIconPaths[row.category] || '',
+        points: []
+      };
+    }
+    groups[row.category].points.push([Number(nf(row.x)), Number(nf(row.y)), row.label || '']);
+  });
+  return Object.values(groups);
+}
+
+function validateForScript(groups) {
+  if (!convertedRows.length) return '请先完成步骤 4 的坐标转换。';
+  const missing = groups.filter(group => !group.iconPath.trim()).map(group => group.category);
+  if (missing.length) return `以下分类还没有设置 SVG 图标路径：${missing.join('、')}`;
+  const scale = parseFloat(g('icon-scale').value);
+  if (Number.isNaN(scale) || scale <= 0) return '图标缩放比例必须大于 0。';
+  return '';
+}
+
+function generateCode() {
+  const groups = buildScriptData();
+  const error = validateForScript(groups);
+  if (error) {
+    status('code-status', 'err', error);
+    return '';
+  }
+
+  const hasLabel = !!getSel('label-col');
+  const dataLiteral = JSON.stringify(groups, null, 2)
+    .replace(/"category":/g, 'category:')
+    .replace(/"iconPath":/g, 'iconPath:')
+    .replace(/"points":/g, 'points:');
+  const coordUnit = getSel('ai-unit');
+  const yDir = getSel('ai-y-dir');
+  const scale = parseFloat(g('icon-scale').value) || 1;
+  const textPos = hasLabel ? getSel('text-pos') : 'none';
+  const fontSize = parseFloat(g('font-size').value) || 10;
+  const fontName = hasLabel ? getSel('text-font') : '';
+  const textColor = JSON.stringify(hexToRgb(g('text-color').value));
+
+  const code = `// ============================================================
+// Adobe Illustrator 经纬度台账批量落图脚本
+// 坐标单位：${coordUnit}；Y 轴方向：${yDir === 'down' ? '向下' : '向上'}
+// ============================================================
+
+var DATA = ${dataLiteral};
+var COORD_UNIT = "${escapeJsString(coordUnit)}";
+var AI_Y_DIR = "${escapeJsString(yDir)}";
+var SCALE = ${scale};
+var TEXT_POS = "${escapeJsString(textPos)}";
+var FONT_SIZE = ${fontSize};
+var FONT_NAME = "${escapeJsString(fontName)}";
+var TEXT_COLOR = ${textColor};
+var ALIGN_CENTER = true;
+
+function toPt(val) {
+    if (COORD_UNIT === "mm") return val * 2.834645669;
+    if (COORD_UNIT === "cm") return val * 28.34645669;
+    if (COORD_UNIT === "in") return val * 72;
+    return val;
+}
+
+function sanitizeLayerName(name) {
+    var s = String(name || "未分类");
+    return s.replace(/[\\\\\\/\\:\\*\\?\\"\\<\\>\\|]/g, "_");
+}
+
+function makeLayer(doc, name, index) {
+    var layer = doc.layers.add();
+    var base = sanitizeLayerName(name);
+    base = "图层-" + base; 
+    try {
+        layer.name = base;
+    } catch (e) {
+        layer.name = base + "_" + index;
+    }
+    return layer;
+}
+
+function makeRGB(rgb) {
+    var color = new RGBColor();
+    color.red = rgb[0];
+    color.green = rgb[1];
+    color.blue = rgb[2];
+    return color;
+}
+
+function placeText(layer, identifier, targetX, targetY, placed) {
+    if (TEXT_POS === "none" || identifier === "") return;
+    var textRef = layer.textFrames.add();
+    textRef.contents = identifier;
+    textRef.textRange.characterAttributes.size = FONT_SIZE;
+    if (FONT_NAME !== "") {
+        try {
+            textRef.textRange.characterAttributes.textFont = app.textFonts.getByName(FONT_NAME);
+        } catch (fontError) {}
+    }
+    textRef.textRange.characterAttributes.fillColor = makeRGB(TEXT_COLOR);
+
+    var tx = targetX - textRef.width / 2;
+    var ty = targetY + textRef.height / 2;
+    if (TEXT_POS === "right") {
+        tx = targetX + placed.width / 2 + 2;
+        ty = targetY + textRef.height / 2;
+    }
+    textRef.position = [tx, ty];
+}
+
+function placeSVGIcons() {
+    if (app.documents.length === 0) {
+        alert("请先打开一个 Ai 文档。");
+        return;
+    }
+
+    var doc = app.activeDocument;
+    var abIndex = doc.artboards.getActiveArtboardIndex();
+    var abRect = doc.artboards[abIndex].artboardRect;
+    var originX = abRect[0];
+    var originY = AI_Y_DIR === "down" ? abRect[1] : abRect[3];
+    var successCount = 0;
+    var totalCount = 0;
+    var errorList = [];
+
+    for (var g = 0; g < DATA.length; g++) {
+        var group = DATA[g];
+        var iconFile = new File(group.iconPath);
+        if (!iconFile.exists) {
+            errorList.push("分类 [" + group.category + "] SVG 文件不存在：" + group.iconPath);
+            continue;
+        }
+
+        var layer = makeLayer(doc, group.category, g + 1);
+        for (var i = 0; i < group.points.length; i++) {
+            totalCount++;
+            var point = group.points[i];
+            var xVal = point[0];
+            var yVal = point[1];
+            var identifier = point.length > 2 ? String(point[2]) : "";
+
+            try {
+                var placed = layer.groupItems.createFromFile(iconFile);
+                if (SCALE !== 1.0) {
+                    placed.resize(SCALE * 100, SCALE * 100);
+                }
+
+                var targetX = originX + toPt(xVal);
+                var targetY = AI_Y_DIR === "down" ? originY - toPt(yVal) : originY + toPt(yVal);
+                var drawX = targetX;
+                var drawY = targetY;
+                if (ALIGN_CENTER) {
+                    drawX -= placed.width / 2;
+                    drawY += placed.height / 2;
+                }
+                placed.position = [drawX, drawY];
+                placed.name = "图标_" + (i + 1) + "_(" + xVal.toFixed(2) + COORD_UNIT + "," + yVal.toFixed(2) + COORD_UNIT + ")" + (identifier ? "_" + identifier : "");
+                placeText(layer, identifier, targetX, targetY, placed);
+                successCount++;
+            } catch (e) {
+                errorList.push("分类 [" + group.category + "] 坐标 (" + xVal + COORD_UNIT + ", " + yVal + COORD_UNIT + ") 失败：" + e.message);
+            }
+        }
+    }
+
+    app.redraw();
+    var msg = "批量添加完成！\\n\\n成功：" + successCount + " / " + totalCount + "\\n图层：按分类项新建";
+    if (errorList.length > 0) {
+        msg += "\\n\\n错误信息：\\n" + errorList.join("\\n");
+    }
+    alert(msg);
+}
+
+placeSVGIcons();`;
+
+  g('output').value = code;
+  status('code-status', 'ok', `脚本已生成：${convertedRows.length} 个点，${groups.length} 个分类图层。`);
+  return code;
+}
+
+function doCopy(text, statusId, msg) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => status(statusId, 'ok', msg))
+      .catch(() => {
+        g('output').select();
+        status(statusId, 'warn', '自动复制失败，已选中代码，请手动复制。');
+      });
+  } else {
+    g('output').select();
+    status(statusId, 'warn', '当前浏览器不支持自动复制，已选中代码，请手动复制。');
+  }
+}
+
+function copyCode() {
+  const code = generateCode();
+  if (!code) return;
+  doCopy(code, 'code-status', '代码已复制到剪贴板。');
+}
+
+function downloadText(text, filename, type) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadJSX() {
+  const code = generateCode();
+  if (!code) return;
+  downloadText(code, `Ai经纬度批量落图_${Date.now()}.jsx`, 'text/plain;charset=utf-8');
+}
+
+function loadExample() {
+  const ctrl = [
+    { lng: 116.4074, lat: 39.9042, x: 100, y: 80 },
+    { lng: 121.4737, lat: 31.2304, x: 320, y: 220 },
+    { lng: 113.2644, lat: 23.1291, x: 180, y: 300 },
+  ];
+  ctrl.forEach((d, i) => {
+    g(`lng${i+1}`).value = d.lng;
+    g(`lat${i+1}`).value = d.lat;
+    g(`aix${i+1}`).value = d.x;
+    g(`aiy${i+1}`).value = d.y;
+  });
+  computeMatrix();
+
+  ledgerHeaders = ['名称', '经度', '纬度', '分类'];
+  ledgerRows = [
+    { 名称: '点位A', 经度: 116.4074, 纬度: 39.9042, 分类: '红房子' },
+    { 名称: '点位B', 经度: 121.4737, 纬度: 31.2304, 分类: '蓝圆点' },
+    { 名称: '点位C', 经度: 113.2644, 纬度: 23.1291, 分类: '红房子' },
+    { 名称: '点位D', 经度: 114.0579, 纬度: 22.5431, 分类: '蓝圆点' },
+  ];
+  renderLedgerPreview();
+  populateColumnSelectors();
+  status('ledger-status', 'ok', '示例台账已载入。');
+}
+
+onAiUnitChange();
+populateColumnSelectors();
+syncLabelControls();
+</script>
+</body>
+</html>
